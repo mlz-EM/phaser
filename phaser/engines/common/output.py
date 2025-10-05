@@ -113,7 +113,7 @@ def _save_object_phase(state: ReconsState, out_path: Path, options: SaveOptions,
     crop = options.crop_roi
 
     xp = get_array_module(state.object.data)
-    obj_phase = xp.angle(state.object.data)
+    obj_phase = xp.angle(state.object.data[0])
 
     obj_sampling = state.object.sampling
     write_opts = tiff_write_opts(
@@ -157,7 +157,7 @@ def _save_object_mag(state: ReconsState, out_path: Path, options: SaveOptions, s
     )
 
     xp = get_array_module(state.object.data)
-    obj_mag = abs2(state.object.data)
+    obj_mag = abs2(state.object.data[0])
     if crop:
         obj_mag = obj_mag[(Ellipsis, *state.object.sampling.get_region_crop())]
         mask = numpy.ones(obj_mag.shape[-2:], dtype=numpy.bool_)

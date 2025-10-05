@@ -104,9 +104,9 @@ class ObjectHookArgs(t.TypedDict):
     dtype: DTypeLike
     xp: t.Any
 
-
 class RandomObjectProps(Dataclass):
     sigma: float = 1e-6
+    modes: int = 1
 
 
 class ObjectHook(Hook[ObjectHookArgs, 'ObjectState']):

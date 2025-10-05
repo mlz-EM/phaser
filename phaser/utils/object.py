@@ -80,71 +80,85 @@ def resample_slices(
     """
     xp = get_array_module(obj)
 
-    while obj.ndim < 3:
-        obj = obj[None, ...]
+    while obj.ndim < 4:
+        obj = obj[:, None, ...]
 
     old_thicknesses = as_numpy(old_thicknesses)
     new_thicknesses = as_numpy(new_thicknesses)
 
     if len(new_thicknesses) < 2:
-        if obj.shape[0] == 1:
+        if obj.shape[1] == 1:
             # single -> single slice, don't resample
             return obj
 
         # multi -> single
-        return xp.prod(obj, axis=0, keepdims=True)  # type: ignore
+        return xp.prod(obj, axis=1, keepdims=True)  # type: ignore
 
-    if obj.shape[0] == 1:
+    if obj.shape[1] == 1:
         # single -> multi, keep projected potential constant
         # TODO more options in this case?
         new_total_thick = numpy.sum(new_thicknesses)
 
-        slice_frac = xp.asarray((new_thicknesses / new_total_thick)[(slice(None), *repeat(None, obj.ndim - 1))])
+        slice_frac = xp.asarray(
+            (new_thicknesses / new_total_thick)[
+                (None, slice(None), *repeat(None, obj.ndim - 2))
+            ]
+        )
         return xp.exp((xp.log(obj) * slice_frac).astype(obj.dtype))
 
-    if obj.shape[0] != len(old_thicknesses):
-        raise ValueError(f"Expected an object with {len(old_thicknesses)} slices, instead got object shape {obj.shape}")
+    if obj.shape[1] != len(old_thicknesses):
+        raise ValueError(
+            f"Expected an object with {len(old_thicknesses)} slices, instead got object shape {obj.shape}"
+        )
 
     # center of slices
-    old_zs = xp.cumsum(old_thicknesses) - old_thicknesses / 2.
-    new_zs = xp.cumsum(new_thicknesses) - new_thicknesses / 2.
+    old_zs = xp.cumsum(old_thicknesses) - old_thicknesses / 2.0
+    new_zs = xp.cumsum(new_thicknesses) - new_thicknesses / 2.0
 
     # shift new_zs for proper alignment
-    if align == 'bottom':
+    if align == "bottom":
         new_zs += numpy.sum(old_thicknesses) - numpy.sum(new_thicknesses)
-    elif align == 'middle':
-        new_zs += (numpy.sum(old_thicknesses) - numpy.sum(new_thicknesses)) / 2.
-    elif align != 'top':
-        raise ValueError(f"Unknown alignment type '{align}'. Expected 'top', 'middle', or 'bottom'.")
+    elif align == "middle":
+        new_zs += (numpy.sum(old_thicknesses) - numpy.sum(new_thicknesses)) / 2.0
+    elif align != "top":
+        raise ValueError(
+            f"Unknown alignment type '{align}'. Expected 'top', 'middle', or 'bottom'."
+        )
 
     # log to make linear, normalize from projected potential to potential
-    obj = (xp.log(obj) / old_thicknesses[:, None, None]).astype(obj.dtype)
+    obj = (xp.log(obj) / old_thicknesses[None, :, None, None]).astype(obj.dtype)
 
-    if pad_mode == 'edge':
-        before_slice = obj[0]
-        after_slice = obj[-1]
-    elif pad_mode == 'average':
-        before_slice = after_slice = xp.nanmean(obj, axis=0)  # type: ignore
-    elif pad_mode == 'vacuum':
-        before_slice = after_slice = xp.zeros_like(obj[0])
+    if pad_mode == "edge":
+        before_slice = obj[:, 0]
+        after_slice = obj[:, -1]
+    elif pad_mode == "average":
+        before_slice = after_slice = xp.nanmean(obj, axis=1)  # type: ignore
+    elif pad_mode == "vacuum":
+        before_slice = after_slice = xp.zeros_like(obj[:, 0])
     else:
-        raise ValueError(f"Unknown padding mode '{pad_mode}'. Expected 'edge', 'vacuum', or 'average'.")
+        raise ValueError(
+            f"Unknown padding mode '{pad_mode}'. Expected 'edge', 'vacuum', or 'average'."
+        )
 
     # pad old object with outer slices
-    old_zs = numpy.concatenate(([old_zs[0] - old_thicknesses[0]], old_zs, [old_zs[-1] + old_thicknesses[-1]]))
-    obj = xp.concatenate((before_slice[None, ...], obj, after_slice[None, ...]), axis=0)
+    old_zs = numpy.concatenate(
+        ([old_zs[0] - old_thicknesses[0]], old_zs, [old_zs[-1] + old_thicknesses[-1]])
+    )
+    obj = xp.concatenate(
+        (before_slice[:, None, ...], obj, after_slice[:, None, ...]), axis=1
+    )
 
-    new_obj = _interp1d(obj, old_zs, new_zs)
+    new_obj = _interp1d(obj, old_zs, new_zs)  # assumes interp along axis=1
 
     # convert back to projected potential
-    new_obj *= new_thicknesses[:, None, None]
+    new_obj *= new_thicknesses[None, :, None, None]
 
     def _calc_projected(o) -> numpy.floating:
         # TODO the object probably needs to be unwrapped before this
         proj_pot = xp.imag(o)
         slice_proj_pot = (
-            xp.nanquantile(proj_pot, 0.99, axis=tuple(range(1, o.ndim))) -
-            xp.nanquantile(proj_pot, 0.01, axis=tuple(range(1, o.ndim)))
+            xp.nanquantile(proj_pot, 0.99, axis=tuple(range(2, o.ndim)))
+            - xp.nanquantile(proj_pot, 0.01, axis=tuple(range(2, o.ndim)))
         )
         return xp.abs(xp.sum(slice_proj_pot))
 
@@ -152,7 +166,8 @@ def resample_slices(
         warnings.warn("The `rescale_projected` feature is experimental. Use at your own risk.")
         # TODO: we may not be able to trust the raw potentials w/out phase ramp removal here
         scale = _calc_projected(obj) / _calc_projected(new_obj)
-        new_obj *= xp.array(scale)[:, None, None]
+        new_obj *= xp.array(scale)[:, None, None, None]
+
 
     # undo log
     return xp.exp(new_obj.astype(obj.dtype))

@@ -115,11 +115,11 @@ class RegularizeLayers:
         # function is multiplicative, not additive
 
         if xp_is_jax(xp):
-            new_obj = xp.exp(scipy.signal.convolve(
-                xp.pad(xp.log(sim.object.data), ((r, r), (0, 0), (0, 0)), mode='edge'),
+            new_obj = xp.exp(xp.stack([scipy.signal.convolve(
+                xp.pad(xp.log(obj), ((r, r), (0, 0), (0, 0)), mode='edge'),
                 kernel[:, None, None],
                 mode="valid"
-            ))
+            )for obj in sim.object.data], axis=0))
         else:
             new_obj = xp.exp(scipy.ndimage.convolve1d(xp.log(
                 sim.object.data
@@ -386,7 +386,7 @@ class LayersTikhonov:
 
         if sim.object.data.shape[0] < 2:
             return (0.0, state)
-
+        ##TODO: MLZ temporary mode TK.
         cost = xp.sum(abs2(xp.diff(sim.object.data, axis=0)))
         # scale cost by fraction of the total reconstruction in the group
         cost_scale = xp.array(group.shape[-1] / prod(sim.scan.shape[:-1]), dtype=cost.dtype)

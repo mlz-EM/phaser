@@ -220,9 +220,9 @@ def hdf5_write_probe_state(state: ProbeState, group: h5py.Group):
 
 
 def hdf5_write_object_state(state: ObjectState, group: h5py.Group):
-    assert state.data.ndim == 3
+    assert state.data.ndim == 4
     assert state.thicknesses.ndim == 1
-    n_z = state.data.shape[0]
+    n_z = state.data.shape[1]
 
     thick = to_numpy(state.thicknesses)
     assert thick.ndim == 1
@@ -232,10 +232,11 @@ def hdf5_write_object_state(state: ObjectState, group: h5py.Group):
     zs.make_scale("z")
 
     dataset = group.create_dataset('data', data=to_numpy(state.data))
-    dataset.dims[0].label = 'z'
-    dataset.dims[0].attach_scale(zs)
-    dataset.dims[1].label = 'y'
-    dataset.dims[2].label = 'x'
+    dataset.dims[0].label = 'mode'
+    dataset.dims[1].label = 'z'
+    dataset.dims[1].attach_scale(zs)
+    dataset.dims[2].label = 'y'
+    dataset.dims[3].label = 'x'
 
     group.create_dataset('sampling', data=state.sampling.sampling.astype(numpy.float64))
     group.create_dataset('extent', data=state.sampling.extent.astype(numpy.float64))

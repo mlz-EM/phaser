@@ -397,16 +397,24 @@ def run_model(
     group_obj = sim.object.sampling.get_view_at_pos(sim.object.data, group_scan, probes.shape[-2:])
     group_subpx_filters = fourier_shift_filter(ky, kx, sim.object.sampling.get_subpx_shifts(group_scan, probes.shape[-2:]))[:, None, ...]
     probes = ifft2(fft2(probes) * group_subpx_filters)
+    probes = xp.repeat(probes[:, None, ...], group_obj.shape[1], axis=1)
 
     def sim_slice(slice_i: int, prop: t.Optional[NDArray[numpy.complexfloating]], psi):
-        # psi: (batch, n_probe, Ny, Nx)
+        # psi: (grouping, obj_modes, probe_modes, x, y)
+        # group_obj: (grouping, obj_modes, slices, x, y)
+
         if prop is not None:
-            return ifft2(fft2(psi * group_obj[:, slice_i, None]) * prop[:, None])
-        return psi * group_obj[:, slice_i, None]
+            # print(psi.shape)
+            # print(group_obj[:, :, slice_i, None].shape)
+            # print(prop[:, None, None].shape)
+            # print(ifft2(fft2(psi * group_obj[:, :, slice_i, None]) * prop[:, None, None]).shape)
+            return ifft2(fft2(psi * group_obj[:, :, slice_i, None]) * prop[:, None, None])
+        return psi * group_obj[:, :, slice_i, None] 
+
 
     t_props = tilt_propagators(ky, kx, sim, props, group_tilts)
     model_wave = fft2(slice_forwards(t_props, probes, sim_slice))
-    model_intensity = xp.sum(abs2(model_wave), axis=1)
+    model_intensity = xp.sum(abs2(model_wave), axis=(1, 2))
 
     (loss, solver_states.noise_model_state) = noise_model.calc_loss(
         model_wave, model_intensity, group_patterns, pattern_mask, solver_states.noise_model_state
@@ -445,15 +453,23 @@ def dry_run(
     group_obj = sim.object.sampling.get_view_at_pos(sim.object.data, sim.scan[tuple(group)], probes.shape[-2:])
     group_subpx_filters = fourier_shift_filter(ky, kx, sim.object.sampling.get_subpx_shifts(sim.scan[tuple(group)], probes.shape[-2:]))[:, None, ...]
     probes = ifft2(fft2(probes) * group_subpx_filters)
+    probes = xp.repeat(probes[:, None, ...], group_obj.shape[1], axis=1)
 
     def sim_slice(slice_i: int, prop: t.Optional[NDArray[numpy.complexfloating]], psi):
+        # psi: (grouping, obj_modes, probe_modes, x, y)
+        # group_obj: (grouping, obj_modes, slices, x, y)
+
         if prop is not None:
-            return ifft2(fft2(psi * group_obj[:, slice_i, None]) * prop[:, None])
-        return psi * group_obj[:, slice_i, None]
+            # print(psi.shape)
+            # print(group_obj[:, :, slice_i, None].shape)
+            # print(prop[:, None, None].shape)
+            return ifft2(fft2(psi * group_obj[:, :, slice_i, None]) * prop[:, None, None])
+        return psi * group_obj[:, :, slice_i, None] 
+
 
     t_props = tilt_propagators(ky, kx, sim, props, sim.tilt[tuple(group)] if sim.tilt is not None else None)
     model_wave = fft2(slice_forwards(t_props, probes, sim_slice))
-    model_intensity = xp.sum(abs2(model_wave), axis=(1, -2, -1))
+    model_intensity = xp.sum(abs2(model_wave), axis=(1, 2, -2, -1))
     exp_intensity = xp.sum(group_patterns, axis=(-2, -1))
 
     return exp_intensity / model_intensity

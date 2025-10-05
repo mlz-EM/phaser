@@ -12,11 +12,11 @@ def random_object(args: ObjectHookArgs, props: RandomObjectProps) -> ObjectState
 
     if args['slices'] is not None:
         thicknesses = numpy.array(args['slices'].thicknesses, dtype=args['dtype'])
-        shape = (len(thicknesses), *sampling.shape)
+        shape = (props.modes, len(thicknesses), *sampling.shape)
     else:
         thicknesses = numpy.array([], dtype=args['dtype'])
-        shape = sampling.shape
-
+        shape = (props.modes, *sampling.shape)
+    
     obj = random_phase_object(
         shape, props.sigma,
         dtype=to_complex_dtype(args['dtype']),
