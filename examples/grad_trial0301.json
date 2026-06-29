@@ -1,0 +1,177 @@
+{
+    "file_type": "phaser_plan",
+    "version": "1.0",
+    "name": "prsco3-grad",
+    "backend": "jax",
+    "dtype": "float32",
+    "wavelength": null,
+    "raw_data": {
+        "type": "empad",
+        "path": "~/lebeau_shared/experimental_prsco3/PSO.json",
+        "diff_step": null,
+        "kv": null,
+        "adu": null,
+        "det_flips": null
+    },
+    "post_load": [
+        {
+            "type": "crop_data",
+            "crop": [16, -16, 16, -16]
+        }
+    ],
+    "init": {
+        "state": null,
+        "scan": null,
+        "tilt": null,
+        "probe": null,
+        "object": null
+    },
+    "post_init": [
+        {
+            "type": "drop_nans",
+            "threshold": 0.9
+        },
+        {
+            "type": "diffraction_align"
+        }
+    ],
+    "slices": {
+        "n": 21,
+        "total_thickness": 210.0
+    },
+    "engines": [
+        {
+            "type": "gradient",
+            "sim_shape": [
+                128,
+                128
+            ],
+            "resize_method": "pad_crop",
+            "probe_modes": 8,
+            "base_mode_power": 0.7,
+            "bwlim_frac": 1.0,
+            "obj_pad_px": 5.0,
+            "slices": null,
+            "niter": 200,
+            "grouping": 16,
+            "compact": 0,
+            "shuffle_groups": null,
+            "buffer_n_groups": 2,
+            "update_probe": {
+                "after": 10,
+                "every": 1,
+                "before": null
+            },
+            "update_object": 1,
+            "update_positions": {
+                "after": 10,
+                "every": 1,
+                "before": null
+            },
+            "update_tilt": 0,
+            "calc_error": {
+                "after": 0,
+                "every": 1,
+                "before": null
+            },
+            "calc_error_fraction": 0.1,
+            "save": {
+                "after": 0,
+                "every": 50,
+                "before": null
+            },
+            "save_images": {
+                "after": 0,
+                "every": 50,
+                "before": null
+            },
+            "save_options": {
+                "images": [
+                    "probe",
+                    "probe_recip",
+                    "object_phase_sum",
+                    "object_mag_sum",
+                    "scan"
+                ],
+                "crop_roi": 1,
+                "unwrap_phase": 0,
+                "img_dtype": "16bit",
+                "plot_ext": "svg",
+                "plot_dpi": 300,
+                "out_dir": "{name}",
+                "img_fmt": "{type}_iter{iter.total_iter:03}.{ext}",
+                "hdf5_fmt": "iter{iter.total_iter:03}.h5"
+            },
+            "early_termination": null,
+            "early_termination_smoothing": 0.9,
+            "send_every_group": 0,
+            "noise_model": {
+                "type": "amplitude",
+                "gaussian_variance": 0.1,
+                "eps": 0.03324637658131251,
+                "offset": 0.0
+            },
+            "solvers": {
+                "object": {
+                    "type": "adam",
+                    "learning_rate": 0.0032890416037231166,
+                    "b1": 0.9,
+                    "b2": 0.999,
+                    "eps": 1.0e-08,
+                    "eps_root": 0.0,
+                    "nesterov": 1
+                },
+                "probe": {
+                    "type": "adam",
+                    "learning_rate": 0.009401564854409508,
+                    "b1": 0.9,
+                    "b2": 0.999,
+                    "eps": 1.0e-08,
+                    "eps_root": 0.0,
+                    "nesterov": 1
+                },
+                "positions": {
+                    "type": "sgd",
+                    "learning_rate": 0.3,
+                    "momentum": 0.3,
+                    "nesterov": 1
+                }
+            },
+            "regularizers": [
+                {
+                    "type": "obj_l1",
+                    "cost": 0.0010066936380251866
+                },
+                {
+                    "type": "obj_l2",
+                    "cost": 0.008959879888489017
+                },
+                {
+                    "type": "layers_tikh",
+                    "cost": 1000.0
+                }
+            ],
+            "group_constraints": [],
+            "iter_constraints": [
+                {
+                    "type": "limit_probe_support",
+                    "max_angle": 23.0
+                },
+                {
+                    "type": "clamp_object_amplitude",
+                    "amplitude": 1.0
+                },
+                {
+                    "type": "obj_gaussian",
+                    "sigma": 0.045550035597708004,
+                    "weight": 1.0
+                },
+                {
+                    "type": "layers",
+                    "sigma": 200.0,
+                    "weight": 0.1
+                }
+            ]
+        }
+    ]
+}
